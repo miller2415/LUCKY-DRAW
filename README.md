@@ -1,4 +1,4 @@
-# 🎡 Ultimate Lucky Wheel Pro (Merged Edition)
+# 🎡 Lucky Draw
 
 這是一個基於 HTML5 Canvas 開發的高級網頁轉盤抽獎系統。本版本整合了靈活的獎項管理、即時庫存扣除、CSV 資料處理，以及優化後的右側指針定位與得獎備註功能。
 
@@ -40,4 +40,5 @@
 ### 資料儲存
 資料儲存鍵值為：
 - `wheel_v5_merged_prizes`: 存儲獎項配置。
+
 - `wheel_v5_merged_hist`: 存儲得獎歷程。
