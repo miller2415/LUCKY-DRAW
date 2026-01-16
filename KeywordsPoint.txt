@@ -1,0 +1,20 @@
+有助於開發與優化的關鍵詞 (Keywords)
+如果未來想要擴充功能，搜尋以下這些專業關鍵詞（技術語）會非常精準：
+    1.核心圖形與動畫 (Graphics & Animation)
+        HTML5 Canvas API: 了解如何繪製圓弧 (arc)、旋轉畫布 (rotate) 與清除畫布 (clearRect)。
+        RequestAnimationFrame: 如果你想要更絲滑、非 CSS 驅動的動畫效果，這是工業標準。
+        Easing Functions (緩動函數)：搜尋 Cubic-Bezier，了解如何調整轉盤「由快到慢」的物理真實感。
+        Trigonometry in JS: 涉及圓周運動時必備的三角函數計算 ($sin, cos$)。
+
+    2. 系統架構與效能 (Architecture & Performance)
+        State Management (狀態管理)：了解如何同步 prizes 陣列與 UI 視圖（如 Vue 或 React 的核心概念）。
+        LocalStorage API: 關於瀏覽器端資料儲存的限制與清理機制。
+        Event Delegation (事件委託)：當你有大量列表項（如歷史紀錄）時，這能提升點擊偵測的效能。
+
+    3.數據處理 (Data Handling)
+        Blob & Object URL: 用於將 JavaScript 產生的資料轉換為可下載檔案（CSV 匯出功能）。
+        FileReader API: 處理使用者上傳圖片或 CSV 檔案的異步讀取。Base64 
+        Encoding: 了解圖片如何被轉換成字串儲存在瀏覽器中。
+    4.UI/UX 趨勢
+        Glassmorphism (毛玻璃) / UI Design: 現代網頁常見的半透明、模糊背景美學。
+        Responsive Web Design (RWD)：利用 Media Queries 讓轉盤在各類屏幕（平板/手機）完美適配。

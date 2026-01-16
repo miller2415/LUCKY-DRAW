@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LUCKY DRAW</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #1a1c2c 0%, #4a192c 100%);
+            --glass-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.1);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --primary-color: #00d2ff;
+            --text-main: #ffffff;
+            --input-bg: rgba(0, 0, 0, 0.25);
+            --danger-color: #ff4b4b;
+        }
+
+        * { box-sizing: border-box; outline: none; user-select: none; }
+
+        html, body {
+            width: 100%; height: 100%; margin: 0; padding: 0;
+            overflow: hidden; background: var(--bg-gradient);
+            font-family: 'Roboto', 'Noto Sans TC', sans-serif; color: var(--text-main);
+        }
+
+        .main-container {
+            display: flex; width: 100%; height: 100%; max-width: 1600px;
+            margin: 0 auto; padding: 20px; gap: 30px;
+        }
+
+        /* --- 左側：轉盤區 --- */
+        .wheel-section {
+            flex: 1.6; display: flex; flex-direction: column;
+            justify-content: center; align-items: center; position: relative; min-width: 0;
+        }
+
+        .wheel-title {
+            position: absolute; top: 5%; color: rgba(255,255,255,0.7); 
+            font-weight: 300; letter-spacing: 4px; font-size: 1.5rem;
+            text-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .wheel-wrapper {
+            position: relative; padding: 10px;
+            filter: drop-shadow(0 0 25px rgba(0,0,0,0.6));
+            transform: scale(0.9);
+        }
+
+        canvas {
+            display: block;
+            /* 檔案二合併：移除檔案一的 -90deg 旋轉，因為指針改到 0度(右側) */
+            transition: transform 0.1s linear; 
+        }
+
+        /* --- 檔案二合併：指針調整至右側 --- */
+        .pointer {
+            position: absolute;
+            top: 50%;
+            right: -20px; 
+            transform: translateY(-50%) rotate(90deg); /* 旋轉指向左邊 */
+            width: 60px; height: 70px;
+            background: #ffffff;
+            clip-path: polygon(100% 0, 50% 100%, 0 0);
+            z-index: 20;
+            filter: drop-shadow(4px 0 6px rgba(0,0,0,0.5));
+        }
+
+        .spin-btn-center {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 100px; height: 100px; border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, #ffffff, #e0e0e0);
+            border: 5px solid rgba(255,255,255,0.2);
+            box-shadow: 0 0 20px rgba(255, 255, 255, 0.4), inset 0 0 10px rgba(0,0,0,0.1);
+            cursor: pointer; z-index: 21;
+            display: flex; justify-content: center; align-items: center;
+            font-weight: 700; color: #333; font-size: 1.6rem;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .spin-btn-center:hover { transform: translate(-50%, -50%) scale(1.1); }
+        .spin-btn-center:disabled { background: #bbb; cursor: not-allowed; transform: translate(-50%, -50%) scale(1); }
+
+        /* --- 右側：控制面板 --- */
+        .control-panel {
+            flex: 1; min-width: 380px; background: var(--glass-bg);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: var(--glass-border); border-radius: 20px;
+            box-shadow: var(--glass-shadow); display: flex;
+            flex-direction: column; overflow: hidden; height: 100%;
+        }
+
+        .panel-header { padding: 20px 20px 0 20px; flex-shrink: 0; }
+        .tabs { display: flex; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .tab-btn {
+            background: transparent; border: none; color: rgba(255,255,255,0.5);
+            padding: 15px 20px; font-size: 1rem; cursor: pointer; transition: 0.3s;
+            position: relative; font-family: 'Noto Sans TC'; font-weight: 500;
+        }
+        .tab-btn.active { color: #fff; }
+        .tab-btn.active::after {
+            content: ''; position: absolute; bottom: -1px; left: 0;
+            width: 100%; height: 3px; background: var(--primary-color);
+        }
+
+        .tab-content-container { flex: 1; overflow-y: auto; padding: 20px; }
+        .tab-content-container::-webkit-scrollbar { width: 6px; }
+        .tab-content-container::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        .tab-content { display: none; animation: fadeIn 0.4s ease; }
+        .tab-content.active { display: block; }
+
+        /* 輸入元件 */
+        input[type="text"], input[type="number"] {
+            width: 100%; background: var(--input-bg); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 6px; padding: 10px; color: #fff; transition: 0.3s;
+        }
+        input:focus { border-color: var(--primary-color); }
+
+        .btn {
+            padding: 10px 15px; border-radius: 8px; border: none; cursor: pointer;
+            font-size: 0.9rem; font-weight: 500; display: inline-flex; align-items: center; gap: 8px;
+            transition: all 0.2s; color: #fff; justify-content: center;
+        }
+        .btn-primary { background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%); }
+        .btn-secondary { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); }
+        .btn-danger { background: rgba(255, 75, 75, 0.2); color: #ff4b4b; border: 1px solid rgba(255, 75, 75, 0.3); }
+
+        /* 列表樣式 */
+        .list-header { display: grid; grid-template-columns: 40px 2fr 1fr 1fr 40px; gap: 10px; font-size: 0.85rem; opacity: 0.6; margin-bottom: 8px; }
+        .list-item {
+            display: grid; grid-template-columns: 40px 2fr 1fr 1fr 40px; gap: 10px;
+            background: rgba(255,255,255,0.05); padding: 10px; margin-bottom: 8px;
+            border-radius: 8px; align-items: center;
+        }
+        .list-item input[type="color"] { width: 100%; height: 35px; border: none; cursor: pointer; background: none; }
+
+        /* --- 檔案二合併：紀錄表格優化 --- */
+        .history-row { display: grid; grid-template-columns: 0.8fr 1.5fr 1fr 40px; gap: 10px; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); align-items: center; }
+        .history-header { font-weight: bold; color: var(--primary-color); border-bottom: 1px solid rgba(255,255,255,0.2); margin-bottom: 5px;}
+        .history-note-edit { 
+            background: rgba(255,255,255,0.05) !important; 
+            border: 1px solid transparent !important; 
+            padding: 5px !important; 
+            font-size: 0.85rem !important;
+            user-select: text !important; /* 允許文字選擇 */
+        }
+
+        /* 彈窗 */
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+            z-index: 100; display: flex; justify-content: center; align-items: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
+        }
+        .modal.open { opacity: 1; pointer-events: all; }
+        .modal-content {
+            background: #252839; width: 90%; max-width: 480px;
+            border-radius: 20px; padding: 35px; text-align: center;
+            border: 1px solid rgba(255,255,255,0.2); transform: scale(0.8); transition: 0.3s;
+        }
+        .modal.open .modal-content { transform: scale(1); }
+
+        @media (max-width: 900px) {
+            html, body { overflow: auto; height: auto; }
+            .main-container { flex-direction: column; height: auto; padding: 10px;}
+            .wheel-section { margin: 40px 0; }
+            .control-panel { height: auto; min-width: 100%; }
+            .pointer { top: 50%; right: -15px; }
+        }
+        
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="main-container">
+    <div class="wheel-section">
+        <h1 class="wheel-title">LUCKY DRAW</h1>
+        <div class="wheel-wrapper">
+            <div class="pointer"></div>
+            <canvas id="wheelCanvas" width="800" height="800"></canvas>
+            <button id="spinBtn" class="spin-btn-center">GO</button>
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div class="panel-header">
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('prizes')"><i class="fas fa-gift"></i> 獎項編輯</button>
+                <button class="tab-btn" onclick="switchTab('settings')"><i class="fas fa-sliders-h"></i> 設定</button>
+                <button class="tab-btn" onclick="switchTab('history')"><i class="fas fa-history"></i> 紀錄</button>
+            </div>
+        </div>
+
+        <div class="tab-content-container">
+            <div id="prizes" class="tab-content active">
+                <div style="display:flex; gap:10px; margin-bottom:20px; flex-wrap:wrap;">
+                    <button class="btn btn-primary" onclick="addPrize()"><i class="fas fa-plus"></i> 新增獎項</button>
+                    <button class="btn btn-secondary" onclick="randomizeColors()"><i class="fas fa-palette"></i> 隨機配色</button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('csvInput').click()"><i class="fas fa-file-import"></i> 匯入</button>
+                    <input type="file" id="csvInput" hidden accept=".csv" onchange="importCSV(this)">
+                    <button class="btn btn-secondary" onclick="exportCSV()"><i class="fas fa-file-export"></i> 匯出</button>
+                </div>
+                <div style="background:rgba(0,0,0,0.2); padding:15px; border-radius:12px; margin-bottom:20px;">
+                    <input type="text" id="quickName" placeholder="輸入獎項名稱..." style="margin-bottom:8px;">
+                    <div style="display:flex; gap:5px;">
+                        <input type="number" id="quickWeight" placeholder="權重" value="10">
+                        <input type="file" id="quickImgUpload" hidden accept="image/*" onchange="handleImgUpload(this)">
+                        <button class="btn btn-secondary" onclick="document.getElementById('quickImgUpload').click()"><i class="fas fa-image"></i></button>
+                    </div>
+                </div>
+                <div class="list-header"><span>色</span><span>名稱</span><span>權重</span><span>數量</span><span>刪</span></div>
+                <div id="prizeListContainer"></div>
+            </div>
+
+            <div id="settings" class="tab-content">
+                <label style="display:block; margin-bottom:10px; color:var(--primary-color);">轉動持續時間 (秒)</label>
+                <input type="number" id="spinDuration" value="5" min="2" max="15" style="margin-bottom:20px;">
+                
+                <div style="background:rgba(255,255,255,0.05); padding:15px; border-radius:12px; margin-bottom:20px;">
+                    <div style="display:flex; align-items:center; margin-bottom:15px;">
+                        <input type="checkbox" id="deductMode" style="width:20px; height:20px; margin-right:10px;"> 
+                        <label for="deductMode" style="cursor:pointer;">開啟庫存扣除 (歸零後隱藏)</label>
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <input type="checkbox" id="soundMode" checked style="width:20px; height:20px; margin-right:10px;"> 
+                        <label for="soundMode" style="cursor:pointer;">開啟轉動音效</label>
+                    </div>
+                </div>
+                <button class="btn btn-danger" onclick="resetAll()" style="width:100%"><i class="fas fa-trash-alt"></i> 重置所有資料</button>
+            </div>
+
+            <div id="history" class="tab-content">
+                <button class="btn btn-secondary" onclick="exportHistory()" style="width:100%; margin-bottom:15px;">下載紀錄 (CSV)</button>
+                <div class="history-row history-header">
+                    <div>時間</div><div>中獎人/備註 (可編輯)</div><div>獎項</div><div>刪</div>
+                </div>
+                <div id="historyListContainer"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="resultModal" class="modal">
+    <div class="modal-content">
+        <h2 style="color:var(--primary-color);">🎉 CONGRATULATIONS!</h2>
+        <div id="winImgContainer" style="margin:15px auto; width:120px; height:120px; display:none;">
+            <img id="winImg" style="width:100%; height:100%; object-fit:contain; border-radius:15px; background:rgba(255,255,255,0.1); padding:10px;">
+        </div>
+        <h3 id="winName" style="font-size:2rem; margin:15px 0;">獎項名稱</h3>
+        <div style="text-align:left; background:rgba(0,0,0,0.2); padding:15px; border-radius:10px;">
+            <label style="font-size:0.8rem; color:#aaa;">領獎人 / 備註資訊：</label>
+            <input type="text" id="winNoteInput" placeholder="請輸入姓名或備註..." style="margin-top:5px;">
+        </div>
+        <button class="btn btn-primary" style="width:100%; margin-top:25px; padding:15px; font-size:1.1rem;" onclick="confirmResult()">確認並儲存</button>
+    </div>
+</div>
+
+<script>
+    // --- 核心變數 ---
+    let prizes = [];
+    let history = [];
+    let isSpinning = false;
+    let currentRotation = 0;
+    const palette = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#F7DC6F', '#BB8FCE', '#F1948A'];
+
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas.getContext('2d');
+    const spinBtn = document.getElementById('spinBtn');
+
+    window.onload = () => {
+        loadData();
+        if(prizes.length === 0) initDemoData();
+        renderList();
+        drawWheel();
+        renderHistory();
+    };
+
+    function initDemoData() {
+        prizes = [
+            { id: 1, name: "現金 $1000", weight: 10, qty: 1, color: "#FF6B6B", img: "" },
+            { id: 2, name: "神秘禮物", weight: 30, qty: 5, color: "#4ECDC4", img: "" },
+            { id: 3, name: "再接再厲", weight: 60, qty: -1, color: "#45B7D1", img: "" }
+        ];
+        saveData();
+    }
+
+    function getActivePrizes() {
+        const deduct = document.getElementById('deductMode').checked;
+        return prizes.filter(p => !deduct || p.qty !== 0);
+    }
+
+    // --- 繪圖邏輯 ---
+    function drawWheel() {
+        const activePrizes = getActivePrizes();
+        const total = activePrizes.length;
+        const arc = (2 * Math.PI) / total;
+        const radius = 380; const cx = 400; const cy = 400;
+
+        ctx.clearRect(0, 0, 800, 800);
+        if (total === 0) return;
+
+        activePrizes.forEach((p, i) => {
+            const angle = i * arc;
+            ctx.beginPath();
+            ctx.moveTo(cx, cy);
+            ctx.arc(cx, cy, radius, angle, angle + arc);
+            ctx.fillStyle = p.color;
+            ctx.fill();
+            ctx.lineWidth = 4; ctx.strokeStyle = "rgba(255,255,255,0.2)"; ctx.stroke();
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.rotate(angle + arc / 2);
+            ctx.textAlign = "right"; ctx.fillStyle = "#fff"; ctx.font = "bold 32px 'Noto Sans TC'";
+            ctx.shadowColor = "rgba(0,0,0,0.5)"; ctx.shadowBlur = 4;
+            ctx.fillText(p.name.substring(0,10), radius - 40, 10);
+            
+            if(p.imgObj) {
+                try {
+                    ctx.save();
+                    ctx.beginPath(); ctx.arc(radius - 150, 0, 40, 0, Math.PI*2); ctx.clip();
+                    ctx.drawImage(p.imgObj, radius - 190, -40, 80, 80);
+                    ctx.restore();
+                } catch(e){}
+            }
+            ctx.restore();
+        });
+        
+        // 外框
+        ctx.beginPath(); ctx.arc(cx, cy, radius, 0, 2*Math.PI);
+        ctx.lineWidth = 15; ctx.strokeStyle = "rgba(255,255,255,0.1)"; ctx.stroke();
+    }
+
+    // --- 抽獎動畫 (指針在右側 0 度) ---
+    let pendingPrize = null;
+
+    spinBtn.addEventListener('click', () => {
+        const activePrizes = getActivePrizes();
+        if(isSpinning || activePrizes.length === 0) return;
+
+        let totalW = activePrizes.reduce((a,b) => a + parseInt(b.weight), 0);
+        let rand = Math.random() * totalW;
+        let winnerIdx = -1;
+        for(let i=0; i<activePrizes.length; i++){
+            rand -= activePrizes[i].weight;
+            if(rand <= 0) { winnerIdx = i; break; }
+        }
+        startSpin(winnerIdx, activePrizes.length, activePrizes[winnerIdx]);
+    });
+
+    function startSpin(idx, total, prize) {
+        isSpinning = true; spinBtn.disabled = true; pendingPrize = prize;
+        const duration = document.getElementById('spinDuration').value * 1000;
+        const arc = (2 * Math.PI) / total;
+        
+        // --- 合併：修正角度計算，目標指向右側 0 度 ---
+        const targetRad = - (idx * arc + arc/2);
+        const targetDeg = targetRad * 180 / Math.PI;
+        
+        const spins = 360 * (5 + Math.floor(Math.random() * 3));
+        let nextDeg = currentRotation + spins + (targetDeg - (currentRotation % 360));
+        if (nextDeg < currentRotation) nextDeg += 360; 
+
+        canvas.style.transition = `transform ${duration/1000}s cubic-bezier(0.15, 0, 0.15, 1)`;
+        canvas.style.transform = `rotate(${nextDeg}deg)`;
+        
+        if(document.getElementById('soundMode').checked) playTickLoop(duration);
+
+        setTimeout(() => {
+            currentRotation = nextDeg; isSpinning = false; spinBtn.disabled = false;
+            showModal(prize);
+        }, duration);
+    }
+
+    // --- 彈窗處理 ---
+    function showModal(prize) {
+        playWin(); confetti({ origin: { y: 0.6 }, zIndex: 150 });
+        const modal = document.getElementById('resultModal');
+        document.getElementById('winName').innerText = prize.name;
+        document.getElementById('winNoteInput').value = "";
+        
+        const imgContainer = document.getElementById('winImgContainer');
+        const img = document.getElementById('winImg');
+        if(prize.img) { img.src = prize.img; imgContainer.style.display = 'block'; }
+        else { imgContainer.style.display = 'none'; }
+        
+        modal.classList.add('open');
+        setTimeout(() => document.getElementById('winNoteInput').focus(), 100);
+    }
+
+    function confirmResult() {
+        if(!pendingPrize) return;
+        const note = document.getElementById('winNoteInput').value.trim() || "無";
+        
+        if(document.getElementById('deductMode').checked && pendingPrize.qty > 0) {
+            const realPrize = prizes.find(p => p.id === pendingPrize.id);
+            if(realPrize) {
+                realPrize.qty--;
+                if(realPrize.qty === 0) {
+                    canvas.style.transition = 'none'; canvas.style.transform = 'rotate(0deg)';
+                    currentRotation = 0; drawWheel();
+                }
+            }
+        }
+
+        history.unshift({ id: Date.now(), time: new Date().toLocaleTimeString(), note: note, prize: pendingPrize.name });
+        saveData(); renderHistory(); renderList();
+        document.getElementById('resultModal').classList.remove('open');
+        pendingPrize = null;
+    }
+
+    // --- 紀錄管理 (檔案二合併功能) ---
+    function renderHistory() {
+        const container = document.getElementById('historyListContainer');
+        container.innerHTML = history.map((h, i) => `
+            <div class="history-row">
+                <div style="font-size:0.8rem; opacity:0.7;">${h.time}</div>
+                <input type="text" class="history-note-edit" value="${h.note}" onchange="updateHistoryNote(${i}, this.value)">
+                <div style="font-weight:500;">${h.prize}</div>
+                <button class="btn btn-danger" style="padding:2px 8px;" onclick="deleteHistory(${idxByTime(h.id)})"><i class="fas fa-trash-alt" style="font-size:0.8rem;"></i></button>
+            </div>
+        `).join('');
+    }
+
+    function idxByTime(id) { return history.findIndex(h => h.id === id); }
+
+    function updateHistoryNote(idx, newVal) {
+        history[idx].note = newVal;
+        saveData();
+    }
+
+    function deleteHistory(idx) {
+        if(confirm("確定刪除這筆得獎紀錄？")) {
+            history.splice(idx, 1);
+            saveData(); renderHistory();
+        }
+    }
+
+    // --- 獎項列表管理 ---
+    function renderList() {
+        const c = document.getElementById('prizeListContainer');
+        c.innerHTML = prizes.map((p, i) => `
+            <div class="list-item">
+                <input type="color" value="${p.color}" onchange="updatePrize(${i}, 'color', this.value)">
+                <input type="text" value="${p.name}" onchange="updatePrize(${i}, 'name', this.value)">
+                <input type="number" value="${p.weight}" onchange="updatePrize(${i}, 'weight', this.value)">
+                <input type="number" value="${p.qty}" onchange="updatePrize(${i}, 'qty', this.value)">
+                <button class="btn btn-danger" onclick="removePrize(${i})"><i class="fas fa-times"></i></button>
+            </div>
+        `).join('');
+    }
+
+    function updatePrize(idx, key, val) {
+        prizes[idx][key] = (key === 'weight' || key === 'qty') ? parseInt(val) : val;
+        saveData(); drawWheel();
+    }
+
+    function addPrize() {
+        const name = document.getElementById('quickName').value;
+        if(!name) return;
+        const file = document.getElementById('quickImgUpload').files[0];
+        const add = (imgData) => {
+            prizes.push({
+                id: Date.now(), name: name, weight: parseInt(document.getElementById('quickWeight').value) || 10,
+                qty: -1, color: palette[prizes.length % palette.length], img: imgData || ""
+            });
+            document.getElementById('quickName').value = '';
+            saveData(); renderList(); drawWheel();
+        };
+        if(file) { const r = new FileReader(); r.onload = e => add(e.target.result); r.readAsDataURL(file); } 
+        else add("");
+    }
+
+    function removePrize(i) { if(confirm('確定刪除？')) { prizes.splice(i, 1); saveData(); renderList(); drawWheel(); } }
+    function randomizeColors() { prizes.forEach(p => p.color = palette[Math.floor(Math.random()*palette.length)]); saveData(); renderList(); drawWheel(); }
+
+    // --- 資料與CSV ---
+    function saveData() {
+        localStorage.setItem('wheel_v5_merged_prizes', JSON.stringify(prizes.map(({imgObj, ...r}) => r)));
+        localStorage.setItem('wheel_v5_merged_hist', JSON.stringify(history));
+        loadImages();
+    }
+
+    function loadData() {
+        const p = localStorage.getItem('wheel_v5_merged_prizes');
+        const h = localStorage.getItem('wheel_v5_merged_hist');
+        if(p) prizes = JSON.parse(p);
+        if(h) history = JSON.parse(h);
+        loadImages();
+    }
+
+    function loadImages() {
+        let loaded = 0; const total = prizes.filter(p=>p.img).length;
+        if(total === 0) { drawWheel(); return; }
+        prizes.forEach(p => {
+            if(p.img) {
+                const i = new Image(); i.src = p.img;
+                i.onload = () => { p.imgObj = i; loaded++; if(loaded===total) drawWheel(); };
+            }
+        });
+    }
+
+    function exportCSV() {
+        const csv = Papa.unparse(prizes.map(({imgObj, ...r})=>r));
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+        a.download = 'prizes.csv'; a.click();
+    }
+
+    function importCSV(input) {
+        Papa.parse(input.files[0], {
+            header: true, complete: res => {
+                if(res.data.length) {
+                    prizes = res.data.filter(r=>r.name).map(r => ({
+                        id: Date.now()+Math.random(), name: r.name, weight: parseInt(r.weight)||10,
+                        qty: parseInt(r.qty)||-1, color: r.color || palette[0], img: r.img || ""
+                    }));
+                    saveData(); renderList(); drawWheel();
+                }
+            }
+        });
+    }
+
+    function exportHistory() {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([Papa.unparse(history)], {type:'text/csv'}));
+        a.download = 'history.csv'; a.click();
+    }
+
+    // --- 音效 ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTick() {
+        const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        o.type = 'triangle'; o.frequency.value = 600;
+        g.gain.setValueAtTime(0.02, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.04);
+        o.connect(g); g.connect(audioCtx.destination); o.start(); o.stop(audioCtx.currentTime+0.04);
+    }
+    function playTickLoop(dur) {
+        let count = 0; const timer = setInterval(() => { count++; if(count < 35) playTick(); }, dur/38);
+        setTimeout(() => clearInterval(timer), dur);
+    }
+    function playWin() {
+        if(!document.getElementById('soundMode').checked) return;
+        [523, 659, 783].forEach((f,i)=>{
+            const o = audioCtx.createOscillator(); const g = audioCtx.createGain();
+            o.frequency.value=f; g.gain.setValueAtTime(0.05, audioCtx.currentTime+i*0.1);
+            o.connect(g); g.connect(audioCtx.destination); o.start(audioCtx.currentTime+i*0.1); o.stop(audioCtx.currentTime+i*0.1+0.4);
+        });
+    }
+
+    function switchTab(id) {
+        document.querySelectorAll('.tab-content, .tab-btn').forEach(e=>e.classList.remove('active'));
+        document.getElementById(id).classList.add('active'); event.currentTarget.classList.add('active');
+    }
+    
+    function resetAll() { if(confirm("確定重置所有資料？")){ localStorage.clear(); location.reload(); } }
+</script>
+
+</body>
+</html>
